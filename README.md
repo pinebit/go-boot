@@ -41,9 +41,10 @@ s3 := service3.NewService3(...)
 4. Start all services respecting the given `context`
 
 ```golang
-services := boot.NewServices(s1, s2, s3)
-// cancelling ctx will stop the boot flow gracefully
+services := boot.Sequentially(s1, s2, s3)
+// cancelling the ctx will stop the boot flow gracefully
 if err := services.Start(ctx); err != nil {
+    // safe to panic, because all the services are stopped
     panic(err)    
 }
 ```
@@ -53,7 +54,7 @@ if err := services.Start(ctx); err != nil {
 5. Shutdown all services respecting a timeout
 
 ```golang
-// recommended shutdown timeout is five seconds for most systems
+// The recommended shutdown timeout is five seconds for most systems.
 ctx, cancel := context.WithTimeout(context.Background(), 5 * time.Second)
 defer cancel()
 // Stop() will stop all services in the reverse order.
@@ -69,15 +70,8 @@ if ok := services.Stop(ctx); !ok {
 You can combine sequential and parallel boot flows. For example, given services A, B, C and D. Where service A must be started first, then B and C can be started simultaneously and then D can be started only after A, B and C have started:
 
 ```golang
-// By default, NewServices() arguments specify the sequential order.
-// Use []boot.Service to specify services that allowed to start simultaneously.
-services := boot.NewServices(a, [b, c], d)
-```
-
-To expand the example further, if you don't care about any order at all:
-
-```golang
-services := boot.NewServices([a, b, c, d])
+services := boot.Sequentially(a, boot.Simultaneously(b, c), d)
+err := services.Start(ctx)
 ```
 
 # Utility wrappers
@@ -99,7 +93,7 @@ import (
 func main() {
     server := &http.Server{...}
     serverService := boot.NewHttpServerService(server)
-    services := boot.NewServices(serverService)
+    services := boot.Sequentially(serverService)
     if err := services.Start(context.TODO()); err != nil {
         panic(err)
     }
