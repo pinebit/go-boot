@@ -30,7 +30,7 @@ type Service1 interface {
 
 3. Instantiate all your services
 
-> Recommended to use Dependency Injection frameworks, such as [wire](https://github.com/google/wire), [fx](https://github.com/uber-go/fx) or any other, for now we simply create all services one by one:
+> Recommended to use Dependency Injection frameworks, such as [wire](https://github.com/google/wire), [fx](https://github.com/uber-go/fx) or any other, for now we simply create all services one by one.
 
 ```golang
 s1 := service1.NewService1(...)
@@ -41,15 +41,13 @@ s3 := service3.NewService3(...)
 4. Start all services respecting the given `context`
 
 ```golang
+// You can choose between boot.Sequentially, boot.Simultaneously or combine them.
 services := boot.Sequentially(s1, s2, s3)
-// cancelling the ctx will stop the boot flow gracefully
+// the ctx can stop the boot flow gracefully
 if err := services.Start(ctx); err != nil {
-    // safe to panic, because all the services are stopped
-    panic(err)    
+    // report error and proceed with the shutdown 
 }
 ```
-
-> Check *Advanced usage* topic to see how to start services in parallel. 
 
 5. Shutdown all services respecting a timeout
 
@@ -58,10 +56,11 @@ if err := services.Start(ctx); err != nil {
 ctx, cancel := context.WithTimeout(context.Background(), 5 * time.Second)
 defer cancel()
 // Stop() will stop all services in the reverse order.
-// The shutdown flow would break if the ctx is cancelled.
-if ok := services.Stop(ctx); !ok {
-    // Timed out, fail fast until your process is SIGKILL'ed.
-    // e.g. release critical locks as the last resort.    
+// The shutdown flow would break if the ctx is done.
+if err := services.Stop(ctx); err != nil {
+    // One of the services reported error, or ctx is done.
+    // Log the error for further investigation.
+    // You still have a good chance to release critical resources, locks. 
 }
 ```
 
@@ -72,33 +71,6 @@ You can combine sequential and parallel boot flows. For example, given services 
 ```golang
 services := boot.Sequentially(a, boot.Simultaneously(b, c), d)
 err := services.Start(ctx)
-```
-
-# Utility wrappers
-
-This project provides several `boot.Service` wrappers for the most common services.
-
-## `HttpServerService`
-
-The standard `http.Server` object supports `Listen`, `Serve` and `Shutdown` operations. These are conveniently wrapped into `HttpServerService` component that can be used with `go-boot`:
-
-```golang
-package main
-
-import (
-    "http"
-    "github.com/pinebit/go-boot/boot"
-)
-
-func main() {
-    server := &http.Server{...}
-    serverService := boot.NewHttpServerService(server)
-    services := boot.Sequentially(serverService)
-    if err := services.Start(context.TODO()); err != nil {
-        panic(err)
-    }
-    ...
-}
 ```
 
 # License
