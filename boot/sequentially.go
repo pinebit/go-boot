@@ -9,57 +9,58 @@ import (
 
 type sequentially struct {
 	services []Service
-	started  []bool
 	mu       sync.Mutex
 }
 
 var _ Service = (*sequentially)(nil)
 
-// Creates a Service that internally starts other services in sequential order.
+// Sequentially() creates a Service that delegates invocations to the given services in the sequential order.
+// All the general rules defined boot.Service interface are applied.
 func Sequentially(services ...Service) Service {
 	return &sequentially{
 		services: services,
-		started:  make([]bool, len(services)),
 		mu:       sync.Mutex{},
 	}
 }
 
-func (s *sequentially) Start(ctx context.Context) (err error) {
+// Start(ctx): delegates to all given services in the sequential order. Service at index 0 starts first.
+// If a service at index K returned an error, the sequence breaks and this error is returned.
+// Note that previously started services 0...K-1 will remain started. In this case,
+// the application is expected to proceed with Stop(ctx), where ctx is likely bound to a timeout.
+// Closing ctx will break the sequence immediately (see the general rules for boot.Service).
+func (s *sequentially) Start(ctx context.Context) error {
 	s.mu.Lock()
-	for index, service := range s.services {
-		if s.started[index] {
-			continue
-		}
+	defer s.mu.Unlock()
 
-		err = service.Start(ctx)
-		if err != nil {
-			s.mu.Unlock()
-			if stopErr := s.Stop(ctx); stopErr != nil {
-				err = multierr.Append(err, stopErr)
-			}
-			return
+	for _, service := range s.services {
+		if ctx.Err() != nil {
+			return ctx.Err()
 		}
-
-		s.started[index] = true
+		// Remember that Start() for an already started service returns nil.
+		if err := service.Start(ctx); err != nil {
+			return err
+		}
 	}
-
-	s.mu.Unlock()
-	return
+	return nil
 }
 
+// Stop(ctx): delegeates to all given services in the reverse order. Service at index 0 stops last.
+// Errors returned from the services are combined with multierr package and do not break the sequence.
+// Closing the ctx will break the sequence immediately (see the general rules for boot.Service).
 func (s *sequentially) Stop(ctx context.Context) (err error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	for index := len(s.started) - 1; index >= 0; index-- {
-		if s.started[index] {
-			stopErr := s.services[index].Stop(ctx)
-			if stopErr != nil {
-				err = multierr.Append(err, stopErr)
-			}
-			s.started[index] = false
+	for index := len(s.services) - 1; index >= 0; index-- {
+		if ctx.Err() != nil {
+			err = multierr.Append(err, ctx.Err())
+			break
+		}
+		// Remember that Stop() for an already stopped service returns nil.
+		stopErr := s.services[index].Stop(ctx)
+		if stopErr != nil {
+			err = multierr.Append(err, stopErr)
 		}
 	}
-
 	return
 }
