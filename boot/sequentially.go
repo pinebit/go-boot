@@ -26,8 +26,6 @@ func Sequentially(services ...Service) Service {
 
 func (s *sequentially) Start(ctx context.Context) (err error) {
 	s.mu.Lock()
-	defer s.mu.Unlock()
-
 	for index, service := range s.services {
 		if s.started[index] {
 			continue
@@ -35,6 +33,7 @@ func (s *sequentially) Start(ctx context.Context) (err error) {
 
 		err = service.Start(ctx)
 		if err != nil {
+			s.mu.Unlock()
 			if stopErr := s.Stop(ctx); stopErr != nil {
 				err = multierr.Append(err, stopErr)
 			}
@@ -44,6 +43,7 @@ func (s *sequentially) Start(ctx context.Context) (err error) {
 		s.started[index] = true
 	}
 
+	s.mu.Unlock()
 	return
 }
 
