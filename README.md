@@ -1,5 +1,7 @@
 # go-boot
 
+[![Go](https://github.com/pinebit/go-boot/actions/workflows/go.yml/badge.svg)](https://github.com/pinebit/go-boot/actions/workflows/go.yml)
+
 A micro-framework for deterministic and graceful services boot and shutdown.
 
 # Why?
