@@ -73,7 +73,7 @@ if err := services.Stop(ctx); err != nil {
 }
 ```
 
-# Using of `Application` wrapper
+# Using `Application` wrapper
 
 Almost every application is handling OS signals to trigger a shutdown. The framework provides this convenient wrapper, that allows you to build a complete graceful application:
 
@@ -81,10 +81,28 @@ Almost every application is handling OS signals to trigger a shutdown. The frame
 func main() {
     // creating services: s1, s2, s3
     services := boot.Sequentially(s1, s2, s3)
-    app := boot.NewApplicationForService(services)
-    if err := app.Run(context.Background(), 5 * time.Second); err != nil {
+    app := boot.NewApplicationForService(services, 5 * time.Second)
+    if err := app.Run(context.Background()); err != nil {
         fmt.Println("application error:", err)
     }
+}
+```
+
+# Using `HttpServer` wrapper for the standard `http.Server`
+
+The framework also provides a convenient wrapper for `http.Server` that gracefully starts/stops the HTTP server.
+Together with `Application` you get the complete minimalistic yet graceful HTTP server:
+
+```golang
+func main() {
+	server := &http.Server{
+		Addr: ":8080",
+	}
+	serverAsService := boot.NewHttpServer(server)
+	app := boot.NewApplicationForService(serverAsService, 5*time.Second)
+	if err := app.Run(context.Background()); err != nil {
+		fmt.Println("server error:", err)
+	}
 }
 ```
 
