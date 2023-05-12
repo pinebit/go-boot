@@ -51,6 +51,13 @@ if err := services.Start(ctx); err != nil {
 }
 ```
 
+You can combine sequential and parallel boot flows. For example, given services A, B, C and D. Where service A must be started first, then B and C can be started simultaneously and then D can be started only after A, B and C have started:
+
+```golang
+services := boot.Sequentially(a, boot.Simultaneously(b, c), d)
+err := services.Start(ctx)
+```
+
 5. Shutdown all services respecting a timeout
 
 ```golang
@@ -66,13 +73,19 @@ if err := services.Stop(ctx); err != nil {
 }
 ```
 
-# Advanced usage
+# Using of `Application` wrapper
 
-You can combine sequential and parallel boot flows. For example, given services A, B, C and D. Where service A must be started first, then B and C can be started simultaneously and then D can be started only after A, B and C have started:
+Almost every application is handling OS signals to trigger a shutdown. The framework provides this convenient wrapper, that allows you to build a complete graceful application:
 
 ```golang
-services := boot.Sequentially(a, boot.Simultaneously(b, c), d)
-err := services.Start(ctx)
+func main() {
+    // creating services: s1, s2, s3
+    services := boot.Sequentially(s1, s2, s3)
+    app := boot.NewApplicationForService(services)
+    if err := app.Run(context.Background(), 5 * time.Second); err != nil {
+        fmt.Println("application error:", err)
+    }
+}
 ```
 
 # License
