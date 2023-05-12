@@ -4,6 +4,8 @@
 
 A micro-framework for deterministic and graceful services boot and shutdown.
 
+Check [the article on Medium](https://medium.com/@pinebit/deterministic-and-graceful-services-boot-and-shutdown-in-go-4944e8a1f950) about the framework.
+
 # Why?
 
 Most golang applications are made of multiple services, where each service is an entity that can be started and stopped on-demand. Most of the services depend on each other, for example it makes little sense to start HTTP server until a DB connection is established. Therefore, all the services need to be started in the right order and then stopped in the reverse order. This allows application to boot and shutdown gracefully and deterministically, properly acquiring and releasing all the resources, locks, etc.
